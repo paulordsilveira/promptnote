@@ -1,0 +1,77 @@
+# Dependências
+node_modules/
+.pnp/
+.pnp.js
+
+# Arquivos de build
+dist/
+build/
+frontend/dist/
+backend/dist/
+
+# Arquivos de ambiente
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+frontend/.env
+frontend/.env.local
+backend/.env
+backend/.env.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Banco de dados SQLite
+*.sqlite
+*.sqlite3
+*.db
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Editores e IDEs
+/.idea
+/.vscode
+*.swp
+*.swo
+
+# Cache
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vite/
+
+# Arquivos de teste
+coverage/
+
+# Arquivos temporários
+.tmp/
+temp/
+tmp/
+
+# Arquivos específicos deste projeto
+check-db.cjs
+sessions.sqlite
+database.sqlite
+
+# Arquivos de backup
+backups/
+*.bak
+*~
+
+# Arquivos de debug
+.debug
+.vercel
+.output
+
+# Arquivos de perfil de desempenho
+.profile 

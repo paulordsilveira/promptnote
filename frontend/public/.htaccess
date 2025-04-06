@@ -1,0 +1,9 @@
+# Ativa o motor de reescrita do Apache
+RewriteEngine On
+
+# Evitar redirecionamento para diretórios/arquivos existentes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Redirecionar todas as requisições para o index.html
+RewriteRule ^(.*)$ index.html [QSA,L] 
