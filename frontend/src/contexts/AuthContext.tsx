@@ -14,23 +14,38 @@ import {
 } from '../utils/storage';
 import databaseService from '../utils/database';
 
-// Interface do contexto de autenticação
-interface AuthContextType {
+// Definição da interface de registro
+interface UserRegister {
+  name: string;
+  email: string;
+  password: string;
+}
+
+// Definição do tipo do contexto
+export interface AuthContextType {
   user: User | null;
+  isAuthenticated: boolean;
   isLoading: boolean;
+  token: string | null;
+  refreshToken: string | null;
   isAuthenticating: boolean;
   authError: string | null;
   showSessionExpiry: boolean;
   sessionTimeRemaining: number | null;
   login: (email: string, password: string) => Promise<boolean>;
-  register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
+  register: (name: string, email: string, password: string) => Promise<boolean>;
+  forgotPassword: (email: string) => Promise<boolean>;
+  resetPassword: (token: string, password: string) => Promise<boolean>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   updateProfile: (updatedData: Partial<User>) => void;
+  renewSession: () => Promise<boolean>;
+  sessionTimeout: number;
+  lastActivity: Date;
+  updateLastActivity: () => void;
   extendSession: () => Promise<boolean>;
   refreshAuthToken: () => Promise<boolean>;
   requestPasswordReset: (email: string) => Promise<boolean>;
-  resetPassword: (token: string, password: string) => Promise<boolean>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
 }
 
 // Criação do contexto

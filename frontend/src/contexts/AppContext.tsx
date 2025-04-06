@@ -54,7 +54,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [databaseStatus, setDatabaseStatus] = useState<'online' | 'offline'>('offline');
 
-  // Verificar a conexão com o banco de dados periodicamente
+  // Verificar a conexão com o banco de dados uma única vez no início
   useEffect(() => {
     const checkConnection = async () => {
       try {
@@ -71,43 +71,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         
         if (response.ok) {
-          try {
-            const status = await response.json();
-            console.log('📊 Status do banco de dados:', status);
-            
-            // Se o servidor retornou um status, considere online independente do valor
-            setDatabaseStatus('online');
-            console.log('✅ Banco de dados está online. Dados serão salvos de forma persistente.');
-            return;
-          } catch (parseError) {
-            // Mesmo com erro de parse, se recebemos resposta 200, consideramos online
-            console.log('✅ Servidor respondeu, considerando banco online mesmo com erro de parse');
-            setDatabaseStatus('online');
-            return;
-          }
+          setDatabaseStatus('online');
+          console.log('✅ Banco de dados está online');
         } else {
-          // Apenas log, sem mostrar alerta (será mostrado apenas na primeira falha)
-          console.error('⚠️ Servidor está offline. Status:', response.status);
           setDatabaseStatus('offline');
+          console.log('⚠️ Banco de dados offline');
         }
       } catch (error) {
         console.error('❌ Erro ao verificar conexão:', error);
-        
-        // Avisar ao usuário que estamos offline (apenas log)
-        console.warn('⚠️ Aplicação em modo offline! Os dados serão salvos localmente.');
         setDatabaseStatus('offline');
       }
     };
     
-    // Verificar imediatamente ao iniciar
+    // Verificar apenas uma vez ao iniciar
     checkConnection();
-    
-    // E então a cada 30 segundos
-    const interval = setInterval(checkConnection, 30000);
-    
-    return () => {
-      clearInterval(interval);
-    };
   }, []);
 
   // Carregar dados do localStorage ao iniciar (apenas se não tivermos dados)
@@ -180,18 +157,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           console.log('🔄 Carregando itens do servidor...');
           
-          // Verificar autenticação antes de tentar obter itens
-          const authCheckResponse = await fetch('/api/auth/check', {
-            method: 'GET',
-            credentials: 'include'
-          }).catch(() => null);
-          
-          if (!authCheckResponse || !authCheckResponse.ok) {
-            console.warn('⚠️ Usuário não autenticado ou sessão expirada, usando dados locais');
-            return;
-          }
-          
-          // Tentar obter itens do usuário
+          // Tentar obter itens do usuário - simplificado
           const response = await fetch('/api/items', {
             method: 'GET',
             credentials: 'include',
@@ -200,69 +166,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           });
           
-          // Se o endpoint principal falhar, tentar endpoint alternativo
-          if (response.status === 404) {
-            console.log('⚠️ Endpoint /api/items não encontrado, tentando alternativa...');
-            
-            // Verificar se temos uma coleção selecionada
-            if (currentCollection) {
-              // Tentar obter itens da coleção atual
-              const altResponse = await fetch(`/api/collections/${currentCollection}/items`, {
-                method: 'GET',
-                credentials: 'include',
-                headers: {
-                  'Content-Type': 'application/json'
-                }
-              }).catch(e => {
-                console.error('Erro no endpoint alternativo:', e);
-                return null;
-              });
-              
-              if (altResponse && altResponse.ok) {
-                const altData = await altResponse.json();
-                console.log(`✅ Itens carregados com sucesso (alternativo): ${altData.items?.length || 0} itens encontrados`);
-                
-                if (altData.items && Array.isArray(altData.items)) {
-                  // Atualizar o estado com os itens do servidor
-                  setItems(altData.items);
-                  return;
-                }
-              }
-            }
-            
-            // Se não conseguir carregar itens, não lançar erro, apenas usar os dados locais
-            console.warn('⚠️ Não foi possível carregar itens remotos, usando dados locais');
-            return;
-          }
-          
           if (!response.ok) {
-            // Registrar erro sem interromper a execução
             console.error(`❌ Erro ao carregar itens (Status: ${response.status})`);
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Detalhes do erro:', errorData);
             return;
           }
           
           // Processar resposta bem-sucedida
           const data = await response.json();
-          console.log(`✅ Itens carregados com sucesso: ${data.items?.length || 0} itens encontrados`);
           
-          if (data.items && Array.isArray(data.items)) {
-            // Atualizar o estado com os itens do servidor
+          // Verificar se data é um array e definir diretamente como itens
+          if (Array.isArray(data)) {
+            console.log(`✅ ${data.length} itens carregados com sucesso`);
+            setItems(data);
+          } 
+          // Se não for um array, verificar se é um objeto com propriedade items
+          else if (data && data.items && Array.isArray(data.items)) {
+            console.log(`✅ ${data.items.length} itens carregados com sucesso`);
             setItems(data.items);
           }
+          // Caso não consiga processar, apenas mostrar um aviso
+          else {
+            console.warn('⚠️ Resposta do servidor não está em formato reconhecível');
+          }
         } catch (error) {
-          // Capturar e registrar o erro, mas não interromper o fluxo da aplicação
           console.error('❌ Erro ao carregar itens do servidor:', error);
-          console.log('⚠️ Usando itens salvos localmente');
         }
-      } else {
-        console.log('⚠️ Servidor offline. Usando itens salvos localmente');
       }
     };
     
-    fetchItemsFromServer();
-  }, [databaseStatus, currentCollection]);
+    // Executar apenas uma vez quando o status do banco de dados mudar para online
+    if (databaseStatus === 'online') {
+      fetchItemsFromServer();
+    }
+  }, [databaseStatus]);
 
   // Salvar dados no localStorage quando mudam
   useEffect(() => {
@@ -309,6 +245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           console.log('Obtendo preview para:', item.url);
           preview = await fetchOGData(item.url);
+          console.log('Preview obtido com sucesso:', preview);
         } catch (error) {
           console.error('Erro ao buscar metadata de OG:', error);
         }
@@ -333,7 +270,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Garantir que temos uma coleção (usar default se não tiver)
       const collectionId = item.collection || 'default_collection';
       
-      // Preparar payload para envio
+      // Preparar payload para envio - incluindo o preview!
       const payload = {
         title: item.title,
         description: item.description || '',
@@ -341,10 +278,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         type: item.type,
         url: item.url || '',
         tags: item.tags || [],
-        collectionId
+        collectionId,
+        preview: preview // Incluir o preview no payload
       };
       
-      console.log('Enviando dados para o servidor:', payload);
+      console.log('Enviando dados para o servidor (incluindo preview):', payload);
       
       // Tentar salvar usando o endpoint principal
       try {
@@ -389,7 +327,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               content: item.content || '',
               type: item.type,
               url: item.url || '',
-              tags: item.tags || []
+              tags: item.tags || [],
+              preview: preview // Incluir o preview também na rota alternativa
             }),
             credentials: 'include'
           });
@@ -433,18 +372,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Atualizar localmente primeiro para feedback imediato
     setItems(prev => prev.map(item => {
       if (item.id === id) {
-        // Atualizar o currentItem se estiver sendo editado
-        const updatedItem = {
-          ...item,
-          ...updates,
-          updatedAt: new Date()
-        };
+        // Garantir que o campo preview seja preservado caso não esteja sendo atualizado
+        const preservePreview = updates.preview !== undefined ? updates.preview : item.preview;
         
-        if (currentItem?.id === id) {
-          setCurrentItemState(updatedItem);
+        // Quando o tipo ou URL de um item muda, tentamos obter os metadados
+        // Isso garante que os links sempre tenham thumbnails
+        if ((updates.type === 'link' || (item.type === 'link' && !updates.type)) && 
+            (updates.url || item.url)) {
+          
+          const targetUrl = updates.url || item.url;
+          console.log('🔄 Item do tipo link atualizado, atualizando metadados para:', targetUrl);
+          
+          // Disparar a atualização assíncrona dos metadados
+          if (targetUrl) {
+            (async () => {
+              try {
+                const newPreview = await fetchOGData(targetUrl);
+                console.log('✅ Novos metadados obtidos:', newPreview);
+                
+                // Atualizar o item novamente com os novos metadados no estado local
+                setItems(latestItems => latestItems.map(i => {
+                  if (i.id === id) {
+                    return {
+                      ...i,
+                      preview: newPreview,
+                      updatedAt: new Date()
+                    };
+                  }
+                  return i;
+                }));
+                
+                // E também enviar a atualização para o servidor com os novos metadados
+                if (databaseStatus === 'online') {
+                  try {
+                    console.log('🔄 Enviando atualização de preview para o servidor...');
+                    
+                    // Primeiro verificar se o item existe
+                    const checkResponse = await fetch(`/api/items/${id}`, {
+                      method: 'GET',
+                      credentials: 'include'
+                    });
+                    
+                    if (checkResponse.status === 404) {
+                      console.log(`⚠️ Item ${id} não existe no servidor para atualizar preview.`);
+                      return;  // Não tente atualizar um item que não existe
+                    }
+                    
+                    const response = await fetch(`/api/items/${id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ preview: newPreview }),
+                      credentials: 'include'
+                    });
+                    
+                    if (response.ok) {
+                      console.log('✅ Preview atualizado no servidor com sucesso');
+                    } else {
+                      console.error('❌ Erro ao atualizar preview no servidor:', response.status);
+                    }
+                  } catch (error) {
+                    console.error('❌ Erro ao enviar atualização de preview:', error);
+                  }
+                }
+              } catch (error) {
+                console.error('❌ Erro ao obter metadados:', error);
+              }
+            })();
+          }
         }
         
-        return updatedItem;
+        return {
+          ...item,
+          ...updates,
+          // Garantir que o preview seja preservado mesmo com outras atualizações
+          preview: preservePreview,
+          updatedAt: new Date()
+        };
       }
       return item;
     }));
@@ -455,16 +458,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       (async () => {
         try {
           console.log('🔄 Atualizando item no servidor...');
+          
+          // Obter o item atual da lista para garantir que temos todos os dados necessários
+          const currentItem = items.find(item => item.id === id);
+          if (!currentItem) {
+            throw new Error('Item não encontrado na lista local');
+          }
+          
+          // Verificar primeiro se o item existe no servidor
+          console.log(`🔄 Verificando se o item ${id} existe no servidor...`);
+          const checkResponse = await fetch(`/api/items/${id}`, {
+            method: 'GET',
+            credentials: 'include'
+          });
+          
+          // Se o item não existir no servidor e for um item com ID temporário, considere criá-lo
+          if (checkResponse.status === 404) {
+            console.log(`⚠️ Item ${id} não encontrado no servidor.`);
+            
+            // Verificar se é um ID temporário (começa com temp_)
+            if (id.startsWith('temp_')) {
+              console.log(`🔄 Tentando criar item temporário ${id} no servidor...`);
+              
+              // Criar o item em vez de atualizar
+              const createResponse = await fetch('/api/items', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  title: currentItem.title,
+                  description: currentItem.description || '',
+                  content: currentItem.content || '',
+                  type: currentItem.type,
+                  url: currentItem.url || '',
+                  preview: currentItem.preview,
+                  collectionId: currentItem.collection || 'default'
+                }),
+                credentials: 'include'
+              });
+              
+              if (createResponse.ok) {
+                const result = await createResponse.json();
+                console.log(`✅ Item temporário criado no servidor com sucesso. Novo ID: ${result.id}`);
+                
+                // Atualizar o ID do item local para o ID retornado pelo servidor
+                if (result.id) {
+                  setItems(prev => prev.map(i => i.id === id ? { ...i, id: result.id } : i));
+                }
+              } else {
+                console.error('❌ Erro ao criar item temporário no servidor:', createResponse.status);
+              }
+            } else {
+              console.log(`⚠️ Item ${id} não existe no servidor e não é um item temporário. Nenhuma ação tomada.`);
+            }
+            
+            return; // Sair da função pois o item não existe para atualizar
+          }
+          
+          // Se estamos atualizando um link, garantir que o preview seja incluído
+          const payload = {
+            ...updates,
+            // Se houver uma coleção para atualizar, use collectionId em vez de collection
+            ...(updates.collection ? { collectionId: updates.collection } : {}),
+            // Incluir o preview, mesmo que não esteja sendo atualizado
+            ...(currentItem.type === 'link' && !updates.preview ? { preview: currentItem.preview } : {})
+          };
+          
+          console.log('Enviando payload de atualização para o servidor:', payload);
+          
           const response = await fetch(`/api/items/${id}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              ...updates,
-              // Se houver uma coleção para atualizar, use collectionId em vez de collection
-              ...(updates.collection ? { collectionId: updates.collection } : {})
-            }),
+            body: JSON.stringify(payload),
             credentials: 'include'
           });
           
@@ -489,7 +557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteItem = (id: string) => {
     // Remover localmente primeiro para feedback imediato
     setItems(prev => prev.filter(item => item.id !== id));
-    if (currentItem?.id === id) {
+    if (currentItem && currentItem.id === id) {
       setCurrentItemState(null);
     }
     
@@ -497,27 +565,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (databaseStatus === 'online') {
       // Executar de forma assíncrona sem bloquear a UI
       (async () => {
-        try {
-          console.log('🔄 Removendo item no servidor...');
-          const response = await fetch(`/api/items/${id}`, {
-            method: 'DELETE',
-            credentials: 'include'
-          });
-          
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Resposta do servidor:', response.status, errorData);
-            throw new Error('Falha ao remover item no servidor');
+        // Função interna de retry para exclusão
+        const deleteWithRetry = async (retryCount = 0, maxRetries = 2) => {
+          try {
+            console.log(`🔄 Tentativa ${retryCount + 1} de remover item ${id} no servidor...`);
+            
+            const response = await fetch(`/api/items/${id}`, {
+              method: 'DELETE',
+              credentials: 'include'
+            });
+            
+            // Se a resposta for bem-sucedida (200-299), retornamos
+            if (response.ok) {
+              console.log(`✅ Item ${id} removido no servidor com sucesso!`);
+              return true;
+            }
+            
+            // Tratar diferentes códigos de erro
+            if (response.status === 404) {
+              // Item não encontrado no servidor (pode ter sido excluído antes)
+              console.log(`⚠️ Item ${id} não encontrado no servidor. Considerando como excluído.`);
+              return true;
+            } else if (response.status === 401 || response.status === 403) {
+              // Problema de autenticação/autorização
+              console.error(`❌ Erro de autorização ao excluir item ${id}:`, response.status);
+              throw new Error('Não autorizado');
+            } else {
+              // Outros erros
+              const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+              console.error(`❌ Erro ao excluir item ${id} (Status ${response.status}):`, errorData);
+              
+              // Tentar novamente se ainda não atingimos o número máximo de tentativas
+              if (retryCount < maxRetries) {
+                console.log(`⏱️ Aguardando para tentar novamente (${retryCount + 1}/${maxRetries})...`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                return deleteWithRetry(retryCount + 1, maxRetries);
+              }
+              
+              throw new Error(`Falha após ${maxRetries + 1} tentativas: ${errorData.message || response.statusText}`);
+            }
+          } catch (error) {
+            if (retryCount < maxRetries) {
+              console.log(`⏱️ Erro na tentativa ${retryCount + 1}, tentando novamente...`);
+              await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+              return deleteWithRetry(retryCount + 1, maxRetries);
+            }
+            
+            // Propagando o erro após todas as tentativas
+            throw error;
           }
-          
-          console.log('✅ Item removido no servidor com sucesso');
+        };
+        
+        try {
+          // Iniciar a exclusão com retry
+          await deleteWithRetry();
         } catch (error) {
-          console.error('❌ Erro ao remover item no servidor:', error);
-          console.log('⚠️ Item removido apenas localmente');
+          console.error(`❌ Todas as tentativas de excluir o item ${id} falharam:`, error);
+          
+          // Restaurar o item localmente se a exclusão no servidor falhar
+          // (comentado pois isso pode confundir o usuário - ele já viu o item ser excluído)
+          // const itemToRestore = items.find(item => item.id === id);
+          // if (itemToRestore) {
+          //   console.log('⚠️ Restaurando item localmente após falha na exclusão no servidor');
+          //   setItems(prev => [...prev, itemToRestore]);
+          // }
+          
+          // Notificar o usuário
+          alert('Não foi possível excluir o item no servidor. Por favor, tente novamente mais tarde.');
         }
       })();
     } else {
       console.log('⚠️ Servidor offline. Item removido apenas localmente');
+      
+      // Adicionar à fila de operações pendentes para sincronizar quando o servidor estiver online
+      const pendingOps = JSON.parse(localStorage.getItem('pendingDeleteOps') || '[]');
+      pendingOps.push({ op: 'delete', id, timestamp: Date.now() });
+      localStorage.setItem('pendingDeleteOps', JSON.stringify(pendingOps));
+      console.log(`⏱️ Exclusão do item ${id} adicionada à fila de operações pendentes para sincronização posterior`);
     }
   };
 
@@ -538,17 +662,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     setItems(prev => prev.map(item => {
       if (item.id === id) {
-        const updatedItem = {
+        // Não é mais necessário atualizar currentItem aqui, pois agora armazenamos apenas o ID
+        return {
           ...item,
           share: shareConfig,
           updatedAt: new Date()
         };
-        
-        if (currentItem?.id === id) {
-          setCurrentItemState(updatedItem);
-        }
-        
-        return updatedItem;
       }
       return item;
     }));
@@ -560,16 +679,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setItems(prev => prev.map(item => {
       if (item.id === id && item.share) {
         const { share, ...rest } = item;
-        const updatedItem = {
+        // Não é mais necessário atualizar currentItem aqui, pois agora armazenamos apenas o ID
+        return {
           ...rest,
           updatedAt: new Date()
         };
-        
-        if (currentItem?.id === id) {
-          setCurrentItemState(updatedItem);
-        }
-        
-        return updatedItem;
       }
       return item;
     }));
@@ -666,41 +780,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTags(prev => prev.filter(tag => tag.id !== id));
   };
 
-  // Criar o objeto de contexto com todas as funções e estado
-  const contextValue: AppContextType = {
-    items,
-    collections,
-    tags,
-    currentItem,
-    currentCollection,
-    viewMode,
-    databaseStatus,
-    setCurrentItem,
-    setCurrentCollection,
-    addItem,
-    updateItem,
-    deleteItem,
-    addCollection,
-    updateCollection,
-    deleteCollection,
-    addTag,
-    updateTag,
-    deleteTag,
-    setViewMode,
-    shareItem,
-    unshareItem,
-    getSharedItem,
-    startEditing: (itemId: string) => {
-      // Seleciona o item e abre para edição
-      setCurrentItem(itemId);
-      // Lógica adicional de edição pode ser implementada aqui
-      console.log(`Iniciando edição do item ${itemId}`);
+  // Processar operações pendentes quando o banco de dados ficar online
+  useEffect(() => {
+    // Só executar quando o status mudar de offline para online
+    if (databaseStatus === 'online') {
+      const processPendingOperations = async () => {
+        try {
+          // Verificar se existem operações pendentes
+          const pendingDeleteOps = JSON.parse(localStorage.getItem('pendingDeleteOps') || '[]');
+          
+          if (pendingDeleteOps.length === 0) {
+            return; // Não há operações pendentes
+          }
+          
+          console.log(`🔄 Processando ${pendingDeleteOps.length} exclusões pendentes...`);
+          
+          // Processar cada operação pendente
+          const failedOps = [];
+          
+          for (const op of pendingDeleteOps) {
+            if (op.op === 'delete') {
+              try {
+                console.log(`🔄 Excluindo item ${op.id} que estava pendente...`);
+                
+                const response = await fetch(`/api/items/${op.id}`, {
+                  method: 'DELETE',
+                  credentials: 'include'
+                });
+                
+                if (response.ok || response.status === 404) {
+                  console.log(`✅ Item ${op.id} excluído com sucesso!`);
+                } else {
+                  console.error(`❌ Erro ao excluir item ${op.id}:`, response.status);
+                  failedOps.push(op);
+                }
+              } catch (error) {
+                console.error(`❌ Erro ao excluir item ${op.id}:`, error);
+                failedOps.push(op);
+              }
+            }
+          }
+          
+          // Atualizar a lista de operações pendentes com as operações que falharam
+          localStorage.setItem('pendingDeleteOps', JSON.stringify(failedOps));
+          
+          console.log(`🔄 ${pendingDeleteOps.length - failedOps.length} exclusões pendentes processadas com sucesso!`);
+          
+          if (failedOps.length > 0) {
+            console.log(`🔄 ${failedOps.length} exclusões pendentes falharam e foram adicionadas à fila novamente.`);
+          }
+        } catch (error) {
+          console.error('❌ Erro ao processar operações pendentes:', error);
+        }
+      };
+      
+      processPendingOperations();
     }
-  };
+  }, [databaseStatus]);
 
   return (
-    <AppContext.Provider value={contextValue}>
+    <AppContext.Provider value={{
+      items,
+      collections,
+      tags,
+      currentItem,
+      currentCollection,
+      viewMode,
+      databaseStatus,
+      setCurrentItem,
+      setCurrentCollection,
+      addItem,
+      updateItem,
+      deleteItem,
+      addCollection,
+      updateCollection,
+      deleteCollection,
+      addTag,
+      updateTag,
+      deleteTag,
+      setViewMode,
+      shareItem,
+      unshareItem,
+      getSharedItem,
+      startEditing: (itemId: string) => {
+        // Seleciona o item e abre para edição
+        setCurrentItem(itemId);
+        // Lógica adicional de edição pode ser implementada aqui
+        console.log(`Iniciando edição do item ${itemId}`);
+      }
+    }}>
       {children}
     </AppContext.Provider>
   );
-}; 
+};

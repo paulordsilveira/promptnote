@@ -32,49 +32,27 @@ export const checkDatabaseConnection = async (): Promise<boolean> => {
   console.log('Verificando conexão com o banco de dados...');
   
   try {
-    // Obter status do servidor
-    const response = await fetch(`${API_URL}/status`, {
+    // Usar a rota de status que é mais simples
+    const response = await fetch('/api/status', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
       },
-      credentials: 'include',
-      cache: 'no-cache',
+      // Crucial: Impedir cache para sempre obter resposta atualizada
+      cache: 'no-store'
     });
     
-    // Se o servidor responder, considere o banco como online
+    console.log('Status da resposta:', response.status);
+    
     if (response.ok) {
-      try {
-        const result = await response.json();
-        console.log('Status do banco de dados:', result);
-        
-        // Se o servidor retornou um status explícito de database, use-o
-        if (result.database === 'online') {
-          setDatabaseStatus('online');
-          console.log('✅ Banco de dados está online (confirmado pelo servidor)');
-          return true;
-        } 
-        
-        // Mesmo que o servidor não confirme explicitamente que o banco está online,
-        // consideramos que se o servidor está respondendo, o banco está disponível
-        setDatabaseStatus('online');
-        console.log('✅ Banco de dados está online (servidor respondeu)');
-        return true;
-      } catch (parseError) {
-        // Mesmo com erro de parse JSON, se o servidor respondeu com status 200, consideramos online
-        console.warn('Erro ao interpretar resposta, mas servidor está online:', parseError);
-        setDatabaseStatus('online');
-        return true;
-      }
+      console.log('Conexão com o banco de dados bem-sucedida');
+      return true;
     } else {
-      console.error('Servidor não respondeu corretamente:', response.status);
-      setDatabaseStatus('offline');
+      console.log('Banco de dados não está respondendo:', response.status);
       return false;
     }
   } catch (error) {
     console.error('Erro ao verificar conexão com o banco de dados:', error);
-    setDatabaseStatus('offline');
     return false;
   }
 };

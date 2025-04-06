@@ -7,7 +7,13 @@ export const requireAuth = (req, res, next) => {
       email: 'usuario_teste@exemplo.com',
       name: 'Usuário Teste' 
     };
-    next();
+    // Garantir que a sessão seja salva antes de continuar
+    req.session.save((err) => {
+      if (err) {
+        console.error('Erro ao salvar sessão:', err);
+      }
+      next();
+    });
     return;
   }
   next();

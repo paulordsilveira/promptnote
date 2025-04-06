@@ -11,6 +11,35 @@ interface OGPreview {
 // Cache local para previews
 const previewCache = new Map<string, {data: OGPreview, timestamp: number}>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 horas em ms
+const PREVIEW_STORAGE_KEY = 'promptnote_previews_cache';
+
+// Carregar cache do localStorage ao iniciar
+try {
+  const storedCache = localStorage.getItem(PREVIEW_STORAGE_KEY);
+  if (storedCache) {
+    const parsed = JSON.parse(storedCache);
+    Object.keys(parsed).forEach(key => {
+      previewCache.set(key, parsed[key]);
+    });
+    console.log(`📦 Carregado cache de previews com ${previewCache.size} itens`);
+  }
+} catch (e) {
+  console.error('Erro ao carregar cache de previews:', e);
+}
+
+// Função para salvar o cache no localStorage
+function persistCacheToStorage() {
+  try {
+    const cacheObject: Record<string, {data: OGPreview, timestamp: number}> = {};
+    previewCache.forEach((value, key) => {
+      cacheObject[key] = value;
+    });
+    localStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(cacheObject));
+    console.log(`💾 Cache de previews salvo com ${previewCache.size} itens`);
+  } catch (e) {
+    console.error('Erro ao salvar cache de previews:', e);
+  }
+}
 
 /**
  * Busca metadados OpenGraph de uma URL
@@ -52,7 +81,9 @@ export async function fetchOGData(url: string): Promise<OGPreview> {
         
     // 3. Tentar tratamento especial para domínios específicos
     if (url.includes('instagram.com')) {
-      return getInstagramFallback(url);
+      const instagramPreview = getInstagramFallback(url);
+      cachePreview(url, instagramPreview);
+      return instagramPreview;
     }
     
     // 4. Fallback: retornar dados básicos
@@ -88,47 +119,96 @@ export async function fetchOGData(url: string): Promise<OGPreview> {
  */
 async function getSimplePreview(url: string): Promise<OGPreview> {
   try {
+    console.log('Iniciando extração de preview para:', url);
+    
     // Tentar obter os dados diretamente via proxy CORS
     const corsProxy = 'https://corsproxy.io/?' + encodeURIComponent(url);
+    console.log('Usando proxy CORS:', corsProxy);
     
     const response = await fetch(corsProxy, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
+      },
+      // Definir um timeout para evitar esperas infinitas
+      signal: AbortSignal.timeout(15000) // 15 segundos de timeout
     });
     
     if (!response.ok) {
+      console.error(`Erro na resposta do proxy (${response.status}):`, await response.text().catch(() => 'Não foi possível ler o corpo da resposta'));
       throw new Error(`Erro ao acessar URL via proxy: ${response.status}`);
     }
     
     const html = await response.text();
+    console.log(`Obtidos ${html.length} caracteres de HTML para análise`);
     
-    // Extrair metadados
+    // Extrair metadados - buscando mais padrões para melhorar a precisão
+    // Título: primeiro og:title, depois title padrão
+    const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["'](.*?)["'][^>]*>/i)
+                     || html.match(/<meta[^>]*content=["'](.*?)["'][^>]*property=["']og:title["'][^>]*>/i);
     const titleMatch = html.match(/<title>(.*?)<\/title>/i);
+    
+    // Descrição: primeiro og:description, depois description padrão
+    const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["'](.*?)["'][^>]*>/i)
+                     || html.match(/<meta[^>]*content=["'](.*?)["'][^>]*property=["']og:description["'][^>]*>/i);
     const descriptionMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["'](.*?)["'][^>]*>/i) 
                         || html.match(/<meta[^>]*content=["'](.*?)["'][^>]*name=["']description["'][^>]*>/i);
+    
+    // Imagem: primeiro og:image, depois twitter:image, depois procurar por imagem grande
     const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["'](.*?)["'][^>]*>/i)
                      || html.match(/<meta[^>]*content=["'](.*?)["'][^>]*property=["']og:image["'][^>]*>/i);
+    const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["'](.*?)["'][^>]*>/i)
+                         || html.match(/<meta[^>]*content=["'](.*?)["'][^>]*name=["']twitter:image["'][^>]*>/i);
     
+    // Título final
+    const title = ogTitleMatch ? ogTitleMatch[1] : (titleMatch ? titleMatch[1] : getDomainName(url));
+    console.log('Título encontrado:', title);
+    
+    // Descrição final
+    const description = ogDescMatch ? ogDescMatch[1] : (descriptionMatch ? descriptionMatch[1] : '');
+    console.log('Descrição encontrada:', description?.substring(0, 100) + (description?.length > 100 ? '...' : ''));
+    
+    // Processa a imagem
     let imageUrl: string | undefined = undefined;
     if (ogImageMatch && ogImageMatch[1]) {
       imageUrl = ogImageMatch[1];
-      // Converter para URL absoluta se for relativa
-      if (imageUrl.startsWith('/')) {
-        const urlObj = new URL(url);
-        imageUrl = `${urlObj.origin}${imageUrl}`;
-      }
-      // Processar a imagem para CORS
-      imageUrl = getSafeImageUrl(imageUrl);
+      console.log('Imagem encontrada via og:image:', imageUrl);
+    } else if (twitterImageMatch && twitterImageMatch[1]) {
+      imageUrl = twitterImageMatch[1];
+      console.log('Imagem encontrada via twitter:image:', imageUrl);
     }
     
-    return {
-      title: titleMatch ? titleMatch[1] : getDomainName(url),
-      description: descriptionMatch ? descriptionMatch[1] : '',
+    // Converter para URL absoluta se for relativa
+    if (imageUrl && imageUrl.startsWith('/')) {
+      const urlObj = new URL(url);
+      imageUrl = `${urlObj.origin}${imageUrl}`;
+      console.log('Convertida para URL absoluta:', imageUrl);
+    } else if (imageUrl && !imageUrl.startsWith('http')) {
+      const urlObj = new URL(url);
+      imageUrl = `${urlObj.origin}/${imageUrl}`;
+      console.log('Convertida para URL absoluta (sem barra):', imageUrl);
+    }
+    
+    // Processar a imagem para CORS
+    if (imageUrl) {
+      const safeImageUrl = getSafeImageUrl(imageUrl);
+      console.log('Imagem processada para proxy:', safeImageUrl);
+      imageUrl = safeImageUrl;
+    } else {
+      // Fallback para logo do domínio
+      imageUrl = getFallbackImage(url);
+      console.log('Usando imagem de fallback:', imageUrl);
+    }
+    
+    const preview = {
+      title,
+      description,
       image: imageUrl,
-      url: url,
+      url,
       provider: 'direct'
     };
+    
+    console.log('Preview extraído com sucesso:', preview);
+    return preview;
   } catch (error) {
     console.error('Erro ao obter preview direto:', error);
     throw error;
@@ -154,6 +234,9 @@ function cachePreview(url: string, data: OGPreview): void {
     data,
     timestamp: Date.now()
   });
+  
+  // Persistir o cache no localStorage
+  persistCacheToStorage();
 }
 
 /**
@@ -176,9 +259,8 @@ function getSafeImageUrl(url: string | undefined): string {
   try {
     // Verificamos se é uma URL absoluta
     new URL(url);
-    
-    // Usar images.weserv.nl como proxy para evitar problemas de CORS
-    return `https://images.weserv.nl/?url=${encodeURIComponent(url)}&n=-1`;
+    // Se chegou aqui, é uma URL válida, mas ainda pode ter problemas de CORS
+    return url;
   } catch (e) {
     console.error('URL inválida:', url);
     return '';

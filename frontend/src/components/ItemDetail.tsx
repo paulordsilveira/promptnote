@@ -144,13 +144,13 @@ export const ItemDetail = () => {
   }
 
   // Encontrar as tags com informações completas
-  const itemTags = currentItem.tags.map(tagName => {
+  const itemTags = currentItem.tags?.map(tagName => {
     const tagInfo = tags.find(t => t.name === tagName);
     return {
       name: tagName,
       color: tagInfo?.color || '#999'
     };
-  });
+  }) || [];
 
   // Recuperar o nome do domínio para exibição
   const getDomainFromUrl = (url: string) => {
@@ -164,14 +164,23 @@ export const ItemDetail = () => {
 
   // Função para formatar a data de criação
   const formatCreationDate = (dateString: string | Date) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      const date = new Date(dateString);
+      // Verificar se a data é válida antes de formatar
+      if (isNaN(date.getTime())) {
+        return "Data não disponível";
+      }
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      console.error("Erro ao formatar data:", dateString, e);
+      return "Data não disponível";
+    }
   };
 
   // Função para obter ícone de arquivo baseado no tipo
@@ -392,7 +401,19 @@ export const ItemDetail = () => {
                     <h3 className="text-sm font-medium text-gray-400">Observações:</h3>
                   </div>
                   <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
-                    <p className="text-gray-300 text-sm italic">{currentItem.observation}</p>
+                    <textarea
+                      className="w-full bg-gray-800 text-gray-300 text-sm italic resize-y min-h-[100px] focus:outline-none"
+                      value={currentItem.observation || ''}
+                      onChange={(e) => {
+                        const value = e.target.value.slice(0, 500);
+                        updateItem(currentItem.id, { observation: value });
+                      }}
+                      maxLength={500}
+                      placeholder="Adicione observações (máximo 500 caracteres)"
+                    />
+                    <div className="text-right text-xs text-gray-500 mt-1">
+                      {(currentItem.observation?.length || 0)}/500
+                    </div>
                   </div>
                 </div>
               )}

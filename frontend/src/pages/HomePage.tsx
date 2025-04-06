@@ -7,6 +7,7 @@ import { ViewToggle } from '../components/ViewToggle';
 import { ItemFilter } from '../components/ItemFilter';
 import { RecentCategories } from '../components/RecentCategories';
 import { Sidebar } from '../components/Sidebar';
+import DebugPanel from '../components/DebugPanel';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useDarkMode } from '../hooks/useDarkMode';
@@ -270,6 +271,9 @@ export const HomePage = ({
             initialType={selectedItemType || undefined}
           />
         )}
+        
+        {/* Painel de depuração */}
+        <DebugPanel />
       </div>
     </div>
   );

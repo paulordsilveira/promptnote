@@ -29,4 +29,20 @@ router.post('/login', async (req, res) => {
   res.json({ user: req.session.user });
 });
 
+// Rota para verificar se o usuário está autenticado
+router.get('/check', (req, res) => {
+  if (req.session && req.session.user) {
+    // Usuário autenticado
+    return res.json({ isAuthenticated: true, user: req.session.user });
+  }
+  
+  // Se não há sessão ou usuário na sessão, criar um usuário temporário
+  if (!req.session.user) {
+    req.session.user = { id: 1, email: 'usuario_teste@exemplo.com' };
+  }
+  
+  // Retornar o usuário (seja o autenticado ou o temporário)
+  return res.json({ isAuthenticated: true, user: req.session.user });
+});
+
 export default router; 

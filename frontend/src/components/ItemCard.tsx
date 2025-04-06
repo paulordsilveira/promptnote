@@ -390,7 +390,7 @@ ${item.content}
       {/* Footer com tags e data */}
       <div className="px-3 py-2">
         {/* Tags */}
-        {item.tags.length > 0 && (
+        {item.tags && item.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-1">
             {item.tags.slice(0, 3).map(tag => {
               const tagInfo = getTagInfo(tag);
