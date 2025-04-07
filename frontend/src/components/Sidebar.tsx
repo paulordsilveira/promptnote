@@ -31,6 +31,7 @@ import {
 import { useApp } from '../contexts/AppContext';
 import { AddCollectionForm } from './AddCollectionForm';
 import { useDarkMode } from '../hooks/useDarkMode';
+import { AddTagForm } from './AddTagForm';
 
 interface SidebarProps {
   onAddItem: () => void;
@@ -61,6 +62,7 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
   });
   const [showAddCollectionForm, setShowAddCollectionForm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showAddTagForm, setShowAddTagForm] = useState(false);
 
   const toggleSection = (section: string) => {
     setCollapsedSections(prev => ({
@@ -77,15 +79,23 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
     setShowMobileMenu(prev => !prev);
   };
 
+  const handleToggleAddTagForm = () => {
+    setShowAddTagForm(prev => !prev);
+  };
+
   // Função para obter uma cor com base no tipo de ícone
   const getIconColor = (iconName: string) => {
     const hash = iconName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return iconColors[hash % iconColors.length];
   };
 
-  // Função para lidar com a seleção de categoria
+  // Função para lidar com a seleção de categoria - simplificada ao máximo
   const handleCategorySelect = (category: string | null) => {
-    if (onCategorySelect) {
+    // Log simples e direto
+    console.log(`SIDEBAR: Categoria selecionada = "${category}"`);
+    
+    // Chamar a função de callback diretamente
+    if (typeof onCategorySelect === 'function') {
       onCategorySelect(category);
     }
   };
@@ -160,7 +170,9 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
               <a 
                 href="#" 
                 className={`sidebar-item ${activeCategory === null ? 'active' : ''}`} 
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  // Exibir tudo: resetar apenas o filtro de categoria
                   setCurrentCollection(null);
                   handleCategorySelect(null);
                 }}
@@ -171,12 +183,16 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
                 <span className="ml-3 text-sm font-semibold text-white">Minhas Notas</span>
               </a>
             </li>
+            
+            {/* Item NOTAS */}
             <li>
               <a 
                 href="#" 
                 className={`sidebar-item ${activeCategory === 'note' ? 'active' : ''}`} 
-                onClick={() => {
-                  setCurrentCollection(null);
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log("SIDEBAR: Clicou em Notas - filtrando por tipo 'note'");
+                  // Não resetar coleção para permitir filtragem combinada
                   handleCategorySelect('note');
                 }}
               >
@@ -186,12 +202,16 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
                 <span className="ml-3 text-sm font-semibold text-white">Notas</span>
               </a>
             </li>
+            
+            {/* Item LINKS */}
             <li>
               <a 
                 href="#" 
                 className={`sidebar-item ${activeCategory === 'link' ? 'active' : ''}`} 
-                onClick={() => {
-                  setCurrentCollection(null);
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log("SIDEBAR: Clicou em Links - filtrando por tipo 'link'");
+                  // Não resetar coleção para permitir filtragem combinada
                   handleCategorySelect('link');
                 }}
               >
@@ -201,12 +221,16 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
                 <span className="ml-3 text-sm font-semibold text-white">Links</span>
               </a>
             </li>
+            
+            {/* Item CÓDIGOS */}
             <li>
               <a 
                 href="#" 
                 className={`sidebar-item ${activeCategory === 'code' ? 'active' : ''}`} 
-                onClick={() => {
-                  setCurrentCollection(null);
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log("SIDEBAR: Clicou em Códigos - filtrando por tipo 'code'");
+                  // Não resetar coleção para permitir filtragem combinada
                   handleCategorySelect('code');
                 }}
               >
@@ -216,12 +240,16 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
                 <span className="ml-3 text-sm font-semibold text-white">Códigos</span>
               </a>
             </li>
+            
+            {/* Item PROMPTS */}
             <li>
               <a 
                 href="#" 
                 className={`sidebar-item ${activeCategory === 'prompt' ? 'active' : ''}`} 
-                onClick={() => {
-                  setCurrentCollection(null);
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log("SIDEBAR: Clicou em Prompts - filtrando por tipo 'prompt'");
+                  // Não resetar coleção para permitir filtragem combinada
                   handleCategorySelect('prompt');
                 }}
               >
@@ -253,38 +281,37 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
                   <a 
                     href="#" 
                     className="sidebar-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault();
+                      console.log(`SIDEBAR: Clicou na coleção "${collection.name}"`);
+                      // Apenas define a coleção, sem resetar a categoria
                       setCurrentCollection(collection.id);
-                      handleCategorySelect(null);
                     }}
                   >
                     <div className="w-8 flex justify-center">
-                      {collection.icon ? (
-                        <>
-                          {collection.icon === 'folder' && <FolderIcon className={`h-5 w-5 ${getIconColor('folder')}`} />}
-                          {collection.icon === 'document' && <DocumentIcon className={`h-5 w-5 ${getIconColor('document')}`} />}
-                          {collection.icon === 'book' && <BookOpenIcon className={`h-5 w-5 ${getIconColor('book')}`} />}
-                          {collection.icon === 'bookmark' && <BookmarkIcon className={`h-5 w-5 ${getIconColor('bookmark')}`} />}
-                          {collection.icon === 'archive' && <ArchiveIcon className={`h-5 w-5 ${getIconColor('archive')}`} />}
-                          {collection.icon === 'beaker' && <BeakerIcon className={`h-5 w-5 ${getIconColor('beaker')}`} />}
-                          {collection.icon === 'briefcase' && <BriefcaseIcon className={`h-5 w-5 ${getIconColor('briefcase')}`} />}
-                          {collection.icon === 'calculator' && <CalculatorIcon className={`h-5 w-5 ${getIconColor('calculator')}`} />}
-                          {collection.icon === 'calendar' && <CalendarIcon className={`h-5 w-5 ${getIconColor('calendar')}`} />}
-                          {collection.icon === 'globe' && <GlobeAltIcon className={`h-5 w-5 ${getIconColor('globe')}`} />}
-                          {collection.icon === 'lightbulb' && <LightBulbIcon className={`h-5 w-5 ${getIconColor('lightbulb')}`} />}
-                          {collection.icon === 'map' && <MapIcon className={`h-5 w-5 ${getIconColor('map')}`} />}
-                          {collection.icon === 'music' && <MusicalNoteIcon className={`h-5 w-5 ${getIconColor('music')}`} />}
-                          {collection.icon === 'pencil' && <PencilIcon className={`h-5 w-5 ${getIconColor('pencil')}`} />}
-                          {collection.icon === 'photo' && <PhotoIcon className={`h-5 w-5 ${getIconColor('photo')}`} />}
-                          {collection.icon === 'puzzle' && <PuzzlePieceIcon className={`h-5 w-5 ${getIconColor('puzzle')}`} />}
-                          {collection.icon === 'star' && <StarIcon className={`h-5 w-5 ${getIconColor('star')}`} />}
-                          {collection.icon === 'video' && <VideoCameraIcon className={`h-5 w-5 ${getIconColor('video')}`} />}
-                        </>
-                      ) : (
-                        <FolderIcon className={`h-5 w-5 ${getIconColor('default')}`} />
-                      )}
+                      {collection.icon === 'folder' && <FolderIcon className={`h-5 w-5 ${getIconColor('folder')}`} />}
+                      {collection.icon === 'document' && <DocumentIcon className={`h-5 w-5 ${getIconColor('document')}`} />}
+                      {collection.icon === 'book' && <BookOpenIcon className={`h-5 w-5 ${getIconColor('book')}`} />}
+                      {collection.icon === 'bookmark' && <BookmarkIcon className={`h-5 w-5 ${getIconColor('bookmark')}`} />}
+                      {collection.icon === 'archive' && <ArchiveIcon className={`h-5 w-5 ${getIconColor('archive')}`} />}
+                      {collection.icon === 'beaker' && <BeakerIcon className={`h-5 w-5 ${getIconColor('beaker')}`} />}
+                      {collection.icon === 'briefcase' && <BriefcaseIcon className={`h-5 w-5 ${getIconColor('briefcase')}`} />}
+                      {collection.icon === 'calculator' && <CalculatorIcon className={`h-5 w-5 ${getIconColor('calculator')}`} />}
+                      {collection.icon === 'calendar' && <CalendarIcon className={`h-5 w-5 ${getIconColor('calendar')}`} />}
+                      {collection.icon === 'globe' && <GlobeAltIcon className={`h-5 w-5 ${getIconColor('globe')}`} />}
+                      {collection.icon === 'lightbulb' && <LightBulbIcon className={`h-5 w-5 ${getIconColor('lightbulb')}`} />}
+                      {collection.icon === 'map' && <MapIcon className={`h-5 w-5 ${getIconColor('map')}`} />}
+                      {collection.icon === 'music' && <MusicalNoteIcon className={`h-5 w-5 ${getIconColor('music')}`} />}
+                      {collection.icon === 'pencil' && <PencilIcon className={`h-5 w-5 ${getIconColor('pencil')}`} />}
+                      {collection.icon === 'photo' && <PhotoIcon className={`h-5 w-5 ${getIconColor('photo')}`} />}
+                      {collection.icon === 'puzzle' && <PuzzlePieceIcon className={`h-5 w-5 ${getIconColor('puzzle')}`} />}
+                      {collection.icon === 'star' && <StarIcon className={`h-5 w-5 ${getIconColor('star')}`} />}
+                      {collection.icon === 'video' && <VideoCameraIcon className={`h-5 w-5 ${getIconColor('video')}`} />}
+                      {!collection.icon && <FolderIcon className={`h-5 w-5 ${getIconColor('default')}`} />}
                     </div>
-                    <span className="ml-3 text-sm font-semibold text-white">{collection.name}</span>
+                    <span className="ml-3 text-sm font-semibold text-white">
+                      {collection.name}
+                    </span>
                   </a>
                 </li>
               ))}
@@ -293,18 +320,28 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
           
           {/* Seção de Tags */}
           <div className="mt-6">
-            <div className="flex items-center justify-between mb-2" onClick={() => toggleSection('tags')}>
+            <div className="flex items-center justify-between mb-2">
               <h3 className={`text-xs font-semibold uppercase sidebar-section-title text-white`}>
                 Tags
               </h3>
-              <button 
-                className={`p-1 rounded-md ${isDarkMode ? 'hover:bg-gray-800 text-white hover:text-white' : 'hover:bg-gray-200 text-white hover:text-purple-600'}`}
-              >
-                {collapsedSections.tags ? 
-                  <ChevronRightIcon className="h-4 w-4" /> : 
-                  <ChevronDownIcon className="h-4 w-4" />
-                }
-              </button>
+              <div className="flex space-x-1">
+                <button 
+                  onClick={handleToggleAddTagForm}
+                  className={`p-1 rounded-md ${isDarkMode ? 'hover:bg-gray-800 text-white hover:text-white' : 'hover:bg-gray-200 text-white hover:text-purple-600'}`}
+                  title="Adicionar tag"
+                >
+                  <PlusIcon className="h-4 w-4" />
+                </button>
+                <button 
+                  onClick={() => toggleSection('tags')}
+                  className={`p-1 rounded-md ${isDarkMode ? 'hover:bg-gray-800 text-white hover:text-white' : 'hover:bg-gray-200 text-white hover:text-purple-600'}`}
+                >
+                  {collapsedSections.tags ? 
+                    <ChevronRightIcon className="h-4 w-4" /> : 
+                    <ChevronDownIcon className="h-4 w-4" />
+                  }
+                </button>
+              </div>
             </div>
             {!collapsedSections.tags && (
               <div className="max-h-56 overflow-y-auto pr-1 mt-1">
@@ -315,8 +352,10 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
                         <a 
                           href="#" 
                           className="sidebar-item py-1.5"
-                          onClick={() => {
-                            setCurrentCollection(null);
+                          onClick={(e) => {
+                            e.preventDefault();
+                            console.log(`SIDEBAR: Clicou na tag "${tag.name}"`);
+                            // Apenas definir a categoria de tag, sem resetar a coleção
                             handleCategorySelect(`tag:${tag.id}`);
                           }}
                         >
@@ -378,6 +417,7 @@ export const Sidebar = ({ onAddItem, onCategorySelect, activeCategory }: Sidebar
       </div>
 
       {showAddCollectionForm && <AddCollectionForm onClose={handleToggleAddCollectionForm} />}
+      {showAddTagForm && <AddTagForm onClose={handleToggleAddTagForm} />}
     </>
   );
 };

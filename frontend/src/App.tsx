@@ -35,6 +35,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function AppRoutes() {
   const { showSessionExpiry } = useAuth();
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   
   return (
     <>
@@ -48,7 +49,10 @@ function AppRoutes() {
         
         <Route path="/" element={
           <ProtectedRoute>
-            <HomePage />
+            <HomePage 
+              activeCategory={activeCategory}
+              setActiveCategory={setActiveCategory}
+            />
           </ProtectedRoute>
         } />
         

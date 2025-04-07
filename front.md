@@ -1,3 +1,6 @@
+# Código Completo HomePage.tsx
+
+```tsx
 import { useState, useMemo, useEffect } from 'react';
 import { ItemGrid } from '../components/ItemGrid';
 import { ItemTable } from '../components/ItemTable';
@@ -361,3 +364,48 @@ export const HomePage = ({
     </div>
   );
 }; 
+```
+
+## Solução da Filtragem por Categorias
+
+O problema de filtragem por categorias foi resolvido com duas correções principais:
+
+1. **No AppContext.tsx**: Normalização dos tipos dos itens
+   - Ao carregar os itens do localStorage, normalizamos os tipos para valores válidos ('note', 'link', 'code', 'prompt')
+   - Ao criar novos itens, garantimos que o tipo seja padronizado (minúsculas, sem espaços)
+
+```tsx
+// Ao carregar do localStorage
+const normalizedItems = storedItems.map((item: Item) => {
+  // Garantir que o tipo seja um dos valores válidos
+  let normalizedType = (item.type || 'note').toLowerCase().trim();
+  
+  // Forçar para ser um dos tipos válidos
+  if (!['note', 'link', 'code', 'prompt'].includes(normalizedType)) {
+    // Tentar fazer correspondência aproximada ou usar 'note' como padrão
+    if (normalizedType.includes('not') || normalizedType.includes('nota')) {
+      normalizedType = 'note';
+    } else if (normalizedType.includes('lin') || normalizedType.includes('url')) {
+      normalizedType = 'link';
+    } else if (normalizedType.includes('cod') || normalizedType.includes('program')) {
+      normalizedType = 'code';
+    } else if (normalizedType.includes('pro') || normalizedType.includes('ai')) {
+      normalizedType = 'prompt';
+    } else {
+      normalizedType = 'note'; // Tipo padrão
+    }
+  }
+  
+  return {
+    ...item,
+    type: normalizedType as 'note' | 'link' | 'code' | 'prompt'
+  };
+});
+```
+
+2. **No HomePage.tsx**: Função auxiliar para identificar itens por tipo
+   - Implementamos uma função `isItemOfType` que usa múltiplas abordagens para verificar o tipo
+   - Esta função aceita variações comuns ('note'/'nota', 'code'/'código', etc.)
+   - Usa estratégias adaptativas para maximizar a compatibilidade
+
+Desta forma, a filtragem por categorias agora funciona corretamente, mesmo com dados inconsistentes ou malformatados. 

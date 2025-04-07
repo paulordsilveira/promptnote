@@ -98,7 +98,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCollections(storedCollections);
     }
     if (storedItems.length > 0) {
-      setItems(storedItems);
+      // ✅ Normalizar os tipos dos itens já existentes
+      const normalizedItems = storedItems.map((item: Item) => {
+        // Garantir que o tipo seja um dos valores válidos
+        let normalizedType = (item.type || 'note').toLowerCase().trim();
+        
+        // Forçar para ser um dos tipos válidos
+        if (!['note', 'link', 'code', 'prompt'].includes(normalizedType)) {
+          // Tentar fazer correspondência aproximada ou usar 'note' como padrão
+          if (normalizedType.includes('not') || normalizedType.includes('nota')) {
+            normalizedType = 'note';
+          } else if (normalizedType.includes('lin') || normalizedType.includes('url')) {
+            normalizedType = 'link';
+          } else if (normalizedType.includes('cod') || normalizedType.includes('program')) {
+            normalizedType = 'code';
+          } else if (normalizedType.includes('pro') || normalizedType.includes('ai')) {
+            normalizedType = 'prompt';
+          } else {
+            normalizedType = 'note'; // Tipo padrão
+          }
+        }
+        
+        return {
+          ...item,
+          type: normalizedType as 'note' | 'link' | 'code' | 'prompt'
+        };
+      });
+      
+      setItems(normalizedItems);
     }
     if (storedTags.length > 0) {
       setTags(storedTags);
@@ -251,12 +278,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
       
+      // ✅ Normalizar o tipo do item
+      let normalizedType = (item.type || 'note').toLowerCase().trim();
+      
+      // Garantir que seja um dos tipos válidos
+      if (!['note', 'link', 'code', 'prompt'].includes(normalizedType)) {
+        if (normalizedType.includes('not') || normalizedType.includes('nota')) {
+          normalizedType = 'note';
+        } else if (normalizedType.includes('lin') || normalizedType.includes('url')) {
+          normalizedType = 'link';
+        } else if (normalizedType.includes('cod') || normalizedType.includes('program')) {
+          normalizedType = 'code';
+        } else if (normalizedType.includes('pro') || normalizedType.includes('ai')) {
+          normalizedType = 'prompt';
+        } else {
+          normalizedType = 'note'; // Tipo padrão
+        }
+      }
+      
       // Criar objeto completo do item
       const newItem: Item = {
         ...item,
         id: tempId,
         createdAt: now,
         updatedAt: now,
+        // ✅ Usar o tipo normalizado
+        type: normalizedType as 'note' | 'link' | 'code' | 'prompt',
         preview
       };
       
